@@ -1,0 +1,24 @@
+{
+  "name": "desafio-modulo2-backend",
+  "version": "1.0.0",
+  "description": "Repositório referente ao desafio do módulo 2 de back-end da Cubos Academy",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/buxexalg/desafio-modulo2-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/buxexalg/desafio-modulo2-backend/issues"
+  },
+  "homepage": "https://github.com/buxexalg/desafio-modulo2-backend#readme",
+  "dependencies": {
+    "koa": "^2.13.0",
+    "koa-bodyparser": "^4.3.0"
+  }
+}
