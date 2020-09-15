@@ -165,7 +165,7 @@ const verificaQuantidade = (id, quantidade, ctx) => {
 const criarPedido = (ctx) => {
 
     let idPedido = 0;
-    (pedidos.length === 0) ? idProduto = 1 : idProduto = pedidos[pedidos.length - 1].id + 1;
+    (pedidos.length === 0) ? idPedido = 1 : idPedido = pedidos[pedidos.length - 1].id + 1;
 
 
     const novoPedido = {
@@ -176,14 +176,17 @@ const criarPedido = (ctx) => {
         deletado: false,
         valorTotal: 0
     }
+
+    pedidos.push(novoPedido);
+    return novoPedido;
 }
 
 const listarPedidos = () => {
-    const listaNaoCancelados = [];
+    const listaNaoDeletados = [];
     pedidos.forEach((item) => {
-        if (item.estado !== 'cancelado') listaNaoCancelados.push(item);
+        if (item.deletado === false) listaNaoDeletados.push(item);
     })
-    return listaNaoCancelados;
+    return listaNaoDeletados;
 }
 
 const listarPedidosEntregues = () => {
@@ -228,8 +231,8 @@ const listarPedido = (id, ctx) => {
 
 const atualizarEstado = (id, ctx) => {
     const pedidoJSON = ctx.request.body;
-    const pedidoAAtualizar = listarPedido(ctx, id);
-    if (pedidosJSON.produtos.length === 0) {
+    const pedidoAAtualizar = listarPedido(id, ctx);
+    if (pedidoAAtualizar.produtos.length === 0) {
         falhaRequisicao(ctx, 'Não é possível alterar o estado de um pedido sem produtos no carrinho.', 403);
         return false; 
     } else {
@@ -240,21 +243,23 @@ const atualizarEstado = (id, ctx) => {
 
 const consultaProdutoCarrinho = (id, ctx) => {
     for (let produto of pedidos) {
-        if (item.produtos[0].id === id) return true;
+        console.log(produto.produtos)
+        if (produto.produtos.id === id) return true;
     }
     return false;
 }
 
-const adicionarPedido = (id, ctx) => {
+const adicionarProdutoAoPedido = (id, ctx) => {
     const produtoAAdicionar = ctx.request.body;
+    const produtoNoEstoque = consultaProduto(produtoAAdicionar.id, ctx);
     const pedidoAAdicionar = listarPedido(id, ctx);
-    const listaProdutos = pedidoAAdicionar.pedidos;
+    const listaProdutos = pedidoAAdicionar.produtos;
 
     if (pedidoAAdicionar) {
-        if (produtoAAdicionar) {
-            if (produtoAAdicionar.deletado === false) {
-                if (produtoAAdicionar.quantidade < quantidade) {
-                    falhaRequisicao(ctx, `Não é possível adicionar uma quantidade maior do que o estoque. Atualmente, temos ${produtoAAdicionar.quantidade} unidades.`, 403);
+        if (produtoNoEstoque) {
+            if (produtoNoEstoque.deletado === false) {
+                if (produtoNoEstoque.quantidade < produtoAAdicionar.quantidade) {
+                    falhaRequisicao(ctx, `Não é possível adicionar uma quantidade maior do que o estoque. Atualmente, temos ${produtoNoEstoque.quantidade} unidades.`, 403);
                     return false;
                 } else if (verificaQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)) {
                     const ProdutoNoCarrinho = consultaProdutoCarrinho(id, ctx);
@@ -277,7 +282,7 @@ const adicionarPedido = (id, ctx) => {
                     verificaQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx);
                 }
             } else {
-                falhaRequisicao(ctx, 'Não é possível alterar um produto deletado.', 403);
+                falhaRequisicao(ctx, 'Não é possível adicionar um produto deletado.', 403);
                 return false;
             }
         } else {
@@ -290,13 +295,15 @@ const adicionarPedido = (id, ctx) => {
     }
 }
 
-const removerPedido = (id, quantidade, ctx) => {
+const removerProdutoDoPedido = (id, quantidade, ctx) => {
     const produtoARemover = ctx.request.body;
+    const produtoNoEstoque = consultaProduto(produtoAAdicionar.id, ctx);
     const pedidoARemover = listarPedido(id, ctx);
-    const listaProdutos = pedidoARemover.pedidos;
+    const listaProdutos = pedidoARemover.produtos;
 
     if (pedidoARemover) {
-        if (produtoARemover) {
+        if (produtoNoEstoque) {
+            if (produtoNoEstoque.deletado === false) {
                 const ProdutoNoCarrinho = consultaProdutoCarrinho(id, ctx);
                 if (ProdutoNoCarrinho) {
                     for (let i = 0; i < listarPedido.length; i++) {
@@ -324,6 +331,7 @@ const removerPedido = (id, quantidade, ctx) => {
                     falhaRequisicao(ctx, 'Produto não está no carrinho.', 404);
                     return false;
                 }
+        }
         } else {
             falhaRequisicao(ctx, 'Produto não encontrado.', 404);
             return false;
@@ -335,7 +343,7 @@ const removerPedido = (id, quantidade, ctx) => {
 
 const calcularValorTotal = (id, ctx) => {
     const pedidoAAlterar = listarPedido(id, ctx);
-    const listaDePedidos = pedidoAAlterar.pedidos;
+    const listaDePedidos = pedidoAAlterar.produtos;
 
     let soma = 0;
     listaDePedidos.forEach((item) => {
@@ -344,6 +352,21 @@ const calcularValorTotal = (id, ctx) => {
     pedidoAAlterar.valorTotal = soma;
 
     return pedidoAAlterar;
+}
+
+const deletarPedido = (id, ctx) => {
+    const pedidoADeletar = listarPedido(id, ctx);
+
+    if (!pedidoADeletar) {
+        falhaRequisicao(ctx, 'Produto não encontrado.', 404);
+        return false;
+    } else {
+        const indexPedido = pedidos.indexOf(pedidoADeletar);
+
+        pedidos[indexPedido].deletado = true;
+
+        return pedidos[indexPedido];
+    }
 }
 
 server.use((ctx) => {
@@ -414,20 +437,21 @@ server.use((ctx) => {
         if (subPath[2]){
             switch (method) {
                 case 'GET':
-                    if (consultaPedido(subPath[2], ctx)) sucessoRequisicao(ctx, consultaPedido(subPath[2], ctx), 200);
+                    if (listarPedido(subPath[2], ctx)) sucessoRequisicao(ctx, listarPedido(subPath[2], ctx), 200);
                     break;
                 case 'PUT':
                     if (ctx.request.body.estado) {
                         if (atualizarEstado(subPath[2], ctx)) sucessoRequisicao(ctx, atualizarEstado(subPath[2], ctx), 200);
                         break;
                     } else if (ctx.request.body.id) {
-                        if (adicionarPedido(subPath[2],ctx)) sucessoRequisicao(ctx, atualizarEstado(subPath[2], ctx), 200);
+                        if (adicionarProdutoAoPedido(subPath[2],ctx)) sucessoRequisicao(ctx, adicionarProdutoAoPedido(subPath[2], ctx), 200);
                         break;
                     } else {
                         falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
                     }
                 case 'DELETE':
-                    if (deletaPedido(subPath[2], ctx)) sucessoRequisicao(ctx, deletaPedido(subPath[2], ctx), 200);
+                    if (deletarPedido(subPath[2], ctx)) sucessoRequisicao(ctx, deletarPedido(subPath[2], ctx), 200);
+                    break;
                 default:
                     falhaRequisicao(ctx, 'Método não permitido' , 405);
                     break; 
