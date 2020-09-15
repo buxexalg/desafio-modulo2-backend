@@ -128,11 +128,11 @@ const deletaProduto = (id, ctx) => {
 const alteraQuantidade = (id, quantidade, ctx) => {
     const produtoEscolhido = consultaProduto(id, ctx);
         if (quantidade < 0) {
-                produtoEscolhido.quantidade -= quantidade;
+                produtoEscolhido.quantidade += quantidade;
                 return produtoEscolhido;
             }
         else if (quantidade > 0) {
-            produtoEscolhido.quantidade += quantidade;
+            produtoEscolhido.quantidade -= quantidade;
             return produtoEscolhido;
     }
 }
@@ -184,7 +184,7 @@ const criarPedido = (ctx) => {
 const listarPedidos = () => {
     const listaNaoDeletados = [];
     pedidos.forEach((item) => {
-        if (item.deletado === false) listaNaoDeletados.push(item);
+        if (item.deletado === false || item.estado === 'cancelado') listaNaoDeletados.push(item);
     })
     return listaNaoDeletados;
 }
@@ -242,9 +242,9 @@ const atualizarEstado = (id, ctx) => {
 }
 
 const consultaProdutoCarrinho = (id, ctx) => {
-    for (let produto of pedidos) {
-        console.log(produto.produtos)
-        if (produto.produtos.id === id) return true;
+    const pedidoAAlterar = listarPedido(id, ctx);
+    for (let produto of pedidoAAlterar.produtos) {
+        if (produto.id == id) return true;
     }
     return false;
 }
@@ -258,28 +258,34 @@ const adicionarProdutoAoPedido = (id, ctx) => {
     if (pedidoAAdicionar) {
         if (produtoNoEstoque) {
             if (produtoNoEstoque.deletado === false) {
-                if (produtoNoEstoque.quantidade < produtoAAdicionar.quantidade) {
-                    falhaRequisicao(ctx, `Não é possível adicionar uma quantidade maior do que o estoque. Atualmente, temos ${produtoNoEstoque.quantidade} unidades.`, 403);
-                    return false;
-                } else if (verificaQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)) {
-                    const ProdutoNoCarrinho = consultaProdutoCarrinho(id, ctx);
-                    if (ProdutoNoCarrinho) {
-                        listaProdutos.forEach((item, i) => {
-                            if (item.id === produtoAAdicionar.id) {
-                                item.quantidade += produtoAAdicionar.quantidade;
-                            }
-                        })
-                        calcularValorTotal(id);
-                        alteraQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)
-                        return pedidoAAdicionar;
+                console.log(pedidoAAdicionar)
+                if (pedidoAAdicionar.estado === 'incompleto') {
+                    if (produtoNoEstoque.quantidade < produtoAAdicionar.quantidade) {
+                        falhaRequisicao(ctx, `Não é possível adicionar uma quantidade maior do que o estoque. Atualmente, temos ${produtoNoEstoque.quantidade} unidades.`, 403);
+                        return false;
+                    } else if (verificaQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)) {
+                        const ProdutoNoCarrinho = consultaProdutoCarrinho(id, ctx);
+                        if (ProdutoNoCarrinho) {
+                            listaProdutos.forEach((item, i) => {
+                                if (item.id === produtoAAdicionar.id) {
+                                    item.quantidade += produtoAAdicionar.quantidade;
+                                }
+                            })
+                            calcularValorTotal(id);
+                            alteraQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)
+                            return pedidoAAdicionar;
+                        } else {
+                            listaProdutos.push(produtoAAdicionar);
+                            calcularValorTotal(id);
+                            alteraQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)
+                            return listarPedido(id);
+                        }
                     } else {
-                        listaProdutos.push(produtoAAdicionar);
-                        calcularValorTotal(id);
-                        alteraQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)
-                        return listarPedido(id);
+                        verificaQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx);
                     }
                 } else {
-                    verificaQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx);
+                    falhaRequisicao(ctx, 'Não é possível adicionar um produto em um pedido completo.', 403);
+                    return false;
                 }
             } else {
                 falhaRequisicao(ctx, 'Não é possível adicionar um produto deletado.', 403);
@@ -347,11 +353,10 @@ const calcularValorTotal = (id, ctx) => {
 
     let soma = 0;
     listaDePedidos.forEach((item) => {
-        soma += item.valor;
+        soma += item.valor * item.quantidade;
     })
     pedidoAAlterar.valorTotal = soma;
-
-    return pedidoAAlterar;
+    console.log(pedidoAAlterar.valorTotal)
 }
 
 const deletarPedido = (id, ctx) => {
@@ -444,7 +449,8 @@ server.use((ctx) => {
                         if (atualizarEstado(subPath[2], ctx)) sucessoRequisicao(ctx, atualizarEstado(subPath[2], ctx), 200);
                         break;
                     } else if (ctx.request.body.id) {
-                        if (adicionarProdutoAoPedido(subPath[2],ctx)) sucessoRequisicao(ctx, adicionarProdutoAoPedido(subPath[2], ctx), 200);
+                        const produtoAdicionado = adicionarProdutoAoPedido(subPath[2],ctx);
+                        if (produtoAdicionado) sucessoRequisicao(ctx, produtoAdicionado, 200);
                         break;
                     } else {
                         falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
