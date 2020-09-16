@@ -384,6 +384,7 @@ server.use((ctx) => {
                         if (consultaProduto(subPath[2], ctx)) sucessoRequisicao(ctx, consultaProduto(subPath[2], ctx));
                         break;
                     case 'PUT':
+                        //O JSON de entrada é o mesmo do POST. O código seleciona o campo que foi alterado e substitui.
                         if (atualizaProduto(subPath[2], ctx)) sucessoRequisicao(ctx, atualizaProduto(subPath[2], ctx), 200)
                         break;
                     case 'DELETE':
@@ -404,6 +405,7 @@ server.use((ctx) => {
     if (path === "/orders") {
         switch (method) {
             case 'POST':
+                //O JSON de entrada é objeto vazio.
                 const novoPedido = criarPedido(ctx);
                 if (novoPedido) {
                     sucessoRequisicao(ctx, novoPedido, 201);
@@ -425,9 +427,12 @@ server.use((ctx) => {
                     break;
                 case 'PUT':
                     if (ctx.request.body.estado) {
+                        //Caso o JSON de entrada contenha estado, ele alterará o mesmo, no formato {estado: pago}
                         if (atualizarEstado(subPath[2], ctx)) sucessoRequisicao(ctx, atualizarEstado(subPath[2], ctx), 200);
                         break;
                     } else if (ctx.request.body.id) {
+                        //Caso o JSON de entrada contenha ID, ele adicionará ou removerá o produto do pedido.
+                        //Caso o campo alterar : adicionar, o produto será adicionado. Caso alterar : remover, será removido.
                         if (ctx.request.body.alterar === 'adicionar') {
                             const produtoAdicionado = adicionarProdutoAoPedido(subPath[2], ctx);
                             if (produtoAdicionado) sucessoRequisicao(ctx, produtoAdicionado, 200);
@@ -452,6 +457,7 @@ server.use((ctx) => {
         } else if (isNaN(subPath[2])) {
             if (method === 'GET') {
                 switch (subPath[2]) {
+                    //Para listar os pedidos específicos, a rota será localhost:8081/orders/paid, por exemplo.
                     case 'delivered':
                         sucessoRequisicao(ctx, listarPedidosEntregues(), 200);
                         break;
