@@ -5,7 +5,7 @@ const server = new Koa();
 
 server.use(bodyparser());
 
-const sucessoRequisicao = (ctx,  conteudo, codigoREST = 200) => {
+const sucessoRequisicao = (ctx, conteudo, codigoREST = 200) => {
     ctx.status = codigoREST;
     ctx.body = {
         status: 'sucesso',
@@ -16,7 +16,7 @@ const sucessoRequisicao = (ctx,  conteudo, codigoREST = 200) => {
 const falhaRequisicao = (ctx, mensagem, codigoREST = 404) => {
     ctx.status = codigoREST;
     ctx.body = {
-        status:  'erro',
+        status: 'erro',
         dados: {
             mensagem: mensagem
         }
@@ -28,19 +28,13 @@ const pedidos = [];
 
 const criarProduto = (ctx) => {
     const pedidoJSON = ctx.request.body;
-    if (!pedidoJSON.nome) {
+    if (!pedidoJSON.nome || !pedidoJSON.quantidade || pedidoJSON.quantidade < 0 || !pedidoJSON.valor || pedidoJSON.valor < 0) {
         falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
         return false;
-    } else if (!pedidoJSON.quantidade || pedidoJSON.quantidade < 0) {
-        falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
-        return false;
-    } else if (!pedidoJSON.valor || pedidoJSON.valor < 0) {
-        falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
-        return false;
-    } 
+    }
 
     let idProduto = 0;
-    (estoque.length === 0) ? idProduto = 1 : idProduto = estoque[estoque.length - 1].id + 1;
+    (estoque.length === 0) ? idProduto = 1: idProduto = estoque[estoque.length - 1].id + 1;
 
     const novoProduto = {
         id: idProduto,
@@ -73,16 +67,10 @@ const atualizaProduto = (id, ctx) => {
     if (produtoJSON.id) {
         falhaRequisicao(ctx, 'Não é possível alterar o ID do produto.', 403);
         return false;
-    } else if (!produtoJSON.nome) {
+    } else if (!produtoJSON.nome || !produtoJSON.quantidade || produtoJSON.quantidade < 0 || !produtoJSON.valor || produtoJSON.valor < 0) {
         falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
         return false;
-    } else if (!produtoJSON.quantidade || produtoJSON.quantidade < 0) {
-        falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
-        return false;
-    } else if (!produtoJSON.valor || produtoJSON.valor < 0) {
-        falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
-        return false;
-    } 
+    }
 
     const produtoAAlterar = consultaProduto(id, ctx);
 
@@ -127,13 +115,12 @@ const deletaProduto = (id, ctx) => {
 
 const alteraQuantidade = (id, quantidade, ctx) => {
     const produtoEscolhido = consultaProduto(id, ctx);
-        if (quantidade < 0) {
-                produtoEscolhido.quantidade += quantidade;
-                return produtoEscolhido;
-            }
-        else if (quantidade > 0) {
-            produtoEscolhido.quantidade -= quantidade;
-            return produtoEscolhido;
+    if (quantidade < 0) {
+        produtoEscolhido.quantidade += quantidade;
+        return produtoEscolhido;
+    } else if (quantidade > 0) {
+        produtoEscolhido.quantidade -= quantidade;
+        return produtoEscolhido;
     }
 }
 
@@ -157,15 +144,15 @@ const verificaQuantidade = (id, quantidade, ctx) => {
             return true;
         } else {
             falhaRequisicao(ctx, 'Não é possível adicionar 0 produtos.', 400);
-            return false; 
+            return false;
         }
-    }    
+    }
 }
 
 const criarPedido = (ctx) => {
 
     let idPedido = 0;
-    (pedidos.length === 0) ? idPedido = 1 : idPedido = pedidos[pedidos.length - 1].id + 1;
+    (pedidos.length === 0) ? idPedido = 1: idPedido = pedidos[pedidos.length - 1].id + 1;
 
 
     const novoPedido = {
@@ -234,17 +221,17 @@ const atualizarEstado = (id, ctx) => {
     const pedidoAAtualizar = listarPedido(id, ctx);
     if (pedidoAAtualizar.produtos.length === 0) {
         falhaRequisicao(ctx, 'Não é possível alterar o estado de um pedido sem produtos no carrinho.', 403);
-        return false; 
+        return false;
     } else {
         pedidoAAtualizar.estado = pedidoJSON.estado;
         return pedidoAAtualizar;
     }
 }
 
-const consultaProdutoCarrinho = (id, ctx) => {
-    const pedidoAAlterar = listarPedido(id, ctx);
+const consultaProdutoCarrinho = (idProduto, idPedido, ctx) => {
+    const pedidoAAlterar = listarPedido(idPedido, ctx);
     for (let produto of pedidoAAlterar.produtos) {
-        if (produto.id == id) return true;
+        if (produto.id == idProduto) return true;
     }
     return false;
 }
@@ -255,95 +242,89 @@ const adicionarProdutoAoPedido = (id, ctx) => {
     const pedidoAAdicionar = listarPedido(id, ctx);
     const listaProdutos = pedidoAAdicionar.produtos;
 
-    if (pedidoAAdicionar) {
-        if (produtoNoEstoque) {
-            if (produtoNoEstoque.deletado === false) {
-                console.log(pedidoAAdicionar)
-                if (pedidoAAdicionar.estado === 'incompleto') {
-                    if (produtoNoEstoque.quantidade < produtoAAdicionar.quantidade) {
-                        falhaRequisicao(ctx, `Não é possível adicionar uma quantidade maior do que o estoque. Atualmente, temos ${produtoNoEstoque.quantidade} unidades.`, 403);
-                        return false;
-                    } else if (verificaQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)) {
-                        const ProdutoNoCarrinho = consultaProdutoCarrinho(id, ctx);
-                        if (ProdutoNoCarrinho) {
-                            listaProdutos.forEach((item, i) => {
-                                if (item.id === produtoAAdicionar.id) {
-                                    item.quantidade += produtoAAdicionar.quantidade;
-                                }
-                            })
-                            calcularValorTotal(id);
-                            alteraQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)
-                            return pedidoAAdicionar;
-                        } else {
-                            listaProdutos.push(produtoAAdicionar);
-                            calcularValorTotal(id);
-                            alteraQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)
-                            return listarPedido(id);
-                        }
+    if (pedidoAAdicionar && produtoNoEstoque) {
+        if (produtoNoEstoque.deletado === false) {
+            if (pedidoAAdicionar.estado === 'incompleto') {
+                if (produtoNoEstoque.quantidade < produtoAAdicionar.quantidade) {
+                    falhaRequisicao(ctx, `Não é possível adicionar uma quantidade maior do que o estoque. Atualmente, temos ${produtoNoEstoque.quantidade} unidades.`, 403);
+                    return false;
+                } else if (verificaQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)) {
+                    const ProdutoNoCarrinho = consultaProdutoCarrinho(produtoAAdicionar.id, id, ctx);
+                    if (ProdutoNoCarrinho) {
+                        listaProdutos.forEach((item, i) => {
+                            if (item.id === produtoAAdicionar.id) {
+                                item.quantidade += produtoAAdicionar.quantidade;
+                            }
+                        })
+                        calcularValorTotal(id);
+                        alteraQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)
+                        return pedidoAAdicionar;
                     } else {
-                        verificaQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx);
+                        delete produtoAAdicionar.alterar;
+                        listaProdutos.push(produtoAAdicionar);
+                        calcularValorTotal(id);
+                        alteraQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx)
+                        return listarPedido(id);
                     }
                 } else {
-                    falhaRequisicao(ctx, 'Não é possível adicionar um produto em um pedido completo.', 403);
-                    return false;
+                    verificaQuantidade(produtoAAdicionar.id, produtoAAdicionar.quantidade, ctx);
                 }
             } else {
-                falhaRequisicao(ctx, 'Não é possível adicionar um produto deletado.', 403);
+                falhaRequisicao(ctx, 'Não é possível adicionar um produto em um pedido completo.', 403);
                 return false;
             }
         } else {
-            falhaRequisicao(ctx, 'Pedido não encontrado.', 404);
+            falhaRequisicao(ctx, 'Não é possível adicionar um produto deletado.', 403);
             return false;
         }
     } else {
-        falhaRequisicao(ctx, 'Pedido não encontrado.', 404);
+        falhaRequisicao(ctx, 'ID não encontrado.', 404);
         return false;
     }
 }
 
-const removerProdutoDoPedido = (id, quantidade, ctx) => {
+const removerProdutoDoPedido = (id, ctx) => {
     const produtoARemover = ctx.request.body;
-    const produtoNoEstoque = consultaProduto(produtoAAdicionar.id, ctx);
+    const produtoNoEstoque = consultaProduto(produtoARemover.id, ctx);
     const pedidoARemover = listarPedido(id, ctx);
     const listaProdutos = pedidoARemover.produtos;
 
-    if (pedidoARemover) {
-        if (produtoNoEstoque) {
-            if (produtoNoEstoque.deletado === false) {
-                const ProdutoNoCarrinho = consultaProdutoCarrinho(id, ctx);
+    if (pedidoARemover && produtoNoEstoque) {
+        if (produtoARemover.quantidade === 0) {
+            falhaRequisicao(ctx, 'Não é possível adicionar 0 produtos.', 400);
+            return false;
+        }
+        if (produtoNoEstoque.deletado === false) {
+            if (pedidoARemover.estado === 'incompleto') {
+                const ProdutoNoCarrinho = consultaProdutoCarrinho(produtoARemover.id, id, ctx);
                 if (ProdutoNoCarrinho) {
-                    for (let i = 0; i < listarPedido.length; i++) {
-                        if (listaProdutos[i].id === produtoARemover.id) {
-                            if (listaProdutos[i].quantidade < quantidade) {
-                                falhaRequisicao(ctx, `Não é possível remover uma quantidade maior do que a do carrinho. Atualmente, existem ${produtoARemover.quantidade} unidades no carrinho.`, 403);
-                                return false;
-                            } else if (listaProdutos[i].quantidade <= 0) {
-                                falhaRequisicao(ctx, `Não é reduzir a quantidade deste item. `, 403);
-                                return false;
-                            } else {
-                                listaProdutos.forEach((item, i) => {
-                                    if (item.id === produtoARemover.id) {
-                                        item.quantidade -= produtoARemover.quantidade;
-                                    }
-                                })
-                                calcularValorTotal(id);
-                                alteraQuantidade(produtoARemover.id, -(produtoARemover.quantidade), ctx)
-                                return produtoARemover;
+                    
+                    listaProdutos.forEach((item, i) => {
+                        if (item.id === produtoARemover.id) {
+                            console.log(produtoARemover);
+                            item.quantidade -= produtoARemover.quantidade;
+                            if (item.quantidade === 0) {
+                                listaProdutos.splice(i, 1);
                             }
                         }
-                        
-                    }
+                    })
+                    calcularValorTotal(id);
+                    alteraQuantidade(pedidoARemover.id, -(pedidoARemover.quantidade), ctx)
+                    return pedidoARemover;
                 } else {
-                    falhaRequisicao(ctx, 'Produto não está no carrinho.', 404);
-                    return false;
+                    falhaRequisicao(ctx, 'Não é possível remover um produto que não está no carrinho.', 403);
+                return false;
                 }
-        }
+            } else {
+                falhaRequisicao(ctx, 'Não é possível adicionar um produto em um pedido completo.', 403);
+                return false;
+            }
         } else {
-            falhaRequisicao(ctx, 'Produto não encontrado.', 404);
+            falhaRequisicao(ctx, 'Não é possível adicionar um produto deletado.', 403);
             return false;
         }
     } else {
-        falhaRequisicao(ctx, 'Pedido não encontrado.', 404);
+        falhaRequisicao(ctx, 'ID não encontrado.', 404);
     }
 }
 
@@ -356,7 +337,6 @@ const calcularValorTotal = (id, ctx) => {
         soma += item.valor * item.quantidade;
     })
     pedidoAAlterar.valorTotal = soma;
-    console.log(pedidoAAlterar.valorTotal)
 }
 
 const deletarPedido = (id, ctx) => {
@@ -379,7 +359,7 @@ server.use((ctx) => {
     const method = ctx.method;
     const subPath = path.split('/');
 
-    if (path === "/products"){
+    if (path === "/products") {
         switch (method) {
             case 'POST':
                 const produtoCriado = criarProduto(ctx);
@@ -393,11 +373,11 @@ server.use((ctx) => {
                 sucessoRequisicao(ctx, listarProdutos(), 200);
                 break;
             default:
-                falhaRequisicao(ctx, 'Método não permitido' , 405);
+                falhaRequisicao(ctx, 'Método não permitido', 405);
                 break;
         }
-    } else 
-    if (path.includes('products')){
+    } else
+    if (path.includes('products')) {
         if (subPath[1] === "products") {
             if (subPath[2]) {
                 switch (method) {
@@ -412,14 +392,14 @@ server.use((ctx) => {
                         if (produtoDeletado) sucessoRequisicao(ctx, produtoDeletado, 200)
                         break;
                     default:
-                        falhaRequisicao(ctx, 'Método não permitido' , 405);
-                        break;   
+                        falhaRequisicao(ctx, 'Método não permitido', 405);
+                        break;
                 }
             } else {
-                falhaRequisicao(ctx, 'Não encontrado.' , 404);
+                falhaRequisicao(ctx, 'Não encontrado.', 404);
             }
         } else {
-            falhaRequisicao(ctx, 'Não encontrado.' , 404);
+            falhaRequisicao(ctx, 'Não encontrado.', 404);
         }
     } else
     if (path === "/orders") {
@@ -434,12 +414,12 @@ server.use((ctx) => {
                 sucessoRequisicao(ctx, listarPedidos(), 200);
                 break;
             default:
-                falhaRequisicao(ctx, 'Método não permitido' , 405);
-                break; 
+                falhaRequisicao(ctx, 'Método não permitido', 405);
+                break;
         }
     } else
-    if (path.includes("orders")){
-        if (subPath[2]){
+    if (path.includes("orders")) {
+        if (!isNaN(subPath[2])) {
             switch (method) {
                 case 'GET':
                     if (listarPedido(subPath[2], ctx)) sucessoRequisicao(ctx, listarPedido(subPath[2], ctx), 200);
@@ -449,19 +429,48 @@ server.use((ctx) => {
                         if (atualizarEstado(subPath[2], ctx)) sucessoRequisicao(ctx, atualizarEstado(subPath[2], ctx), 200);
                         break;
                     } else if (ctx.request.body.id) {
-                        const produtoAdicionado = adicionarProdutoAoPedido(subPath[2],ctx);
-                        if (produtoAdicionado) sucessoRequisicao(ctx, produtoAdicionado, 200);
-                        break;
+                        if (ctx.request.body.alterar === 'adicionar') {
+                            const produtoAdicionado = adicionarProdutoAoPedido(subPath[2], ctx);
+                            if (produtoAdicionado) sucessoRequisicao(ctx, produtoAdicionado, 200);
+                            break;
+                        } else if (ctx.request.body.alterar === 'remover') {
+                            const produtoRemovido = removerProdutoDoPedido(subPath[2], ctx);
+                            if (produtoRemovido) sucessoRequisicao(ctx, produtoRemovido, 200);
+                            break;
+                        } else {
+                            falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
+                        }
                     } else {
                         falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
                     }
-                case 'DELETE':
-                    if (deletarPedido(subPath[2], ctx)) sucessoRequisicao(ctx, deletarPedido(subPath[2], ctx), 200);
-                    break;
-                default:
-                    falhaRequisicao(ctx, 'Método não permitido' , 405);
-                    break; 
+                    case 'DELETE':
+                        if (deletarPedido(subPath[2], ctx)) sucessoRequisicao(ctx, deletarPedido(subPath[2], ctx), 200);
+                        break;
+                    default:
+                        falhaRequisicao(ctx, 'Método não permitido', 405);
+                        break;
             }
+        } else if (isNaN(subPath[2])) {
+            if (method === 'GET') {
+                switch (subPath[2]) {
+                    case 'delivered':
+                        sucessoRequisicao(ctx, listarPedidosEntregues(), 200);
+                        break;
+                    case 'paid':
+                        sucessoRequisicao(ctx, listarPedidosPagos(), 200);
+                        break;
+                    case 'processing':
+                        sucessoRequisicao(ctx, listarPedidosProcessando(), 200);
+                        break;
+                    case 'canceled':
+                        sucessoRequisicao(ctx, listarPedidosCancelados(), 200);
+                        break;
+                }
+            } else {
+                falhaRequisicao(ctx, 'Método não permitido', 405);
+            }
+        } else {
+            falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
         }
     } else {
         falhaRequisicao(ctx, 'Insira corretamente todos os dados necessários.', 400);
