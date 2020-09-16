@@ -298,7 +298,6 @@ const removerProdutoDoPedido = (id, ctx) => {
             if (pedidoARemover.estado === 'incompleto') {
                 const ProdutoNoCarrinho = consultaProdutoCarrinho(produtoARemover.id, id, ctx);
                 if (ProdutoNoCarrinho) {
-                    
                     listaProdutos.forEach((item, i) => {
                         if (item.id === produtoARemover.id) {
                             console.log(produtoARemover);
